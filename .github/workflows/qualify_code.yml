@@ -53,14 +53,43 @@ jobs:
       run: |
         pip install ruff
 
-    # Example task with the cloned repo
-    - name: Process Files in Hugging Face Repo
+    # Process JSON file
+    - name: Process JSON for PEP8 Compliance
       run: |
         mkdir -p phase1/qualified phase1/unqualified
-        for file in huggingface_repo/*; do
-          filename=$(basename "$file")
-          if ruff check "$file"; then
-            cp "$file" "phase1/qualified/$filename"
+        mkdir -p phase2/reformatted phase2/unfixable
+
+        # Iterate over JSON and validate content
+        jq -c '.[]' huggingface_repo/data/python/data.json | while read -r line; do
+          content=$(echo "$line" | jq -r '.content')
+          filename=$(echo "$line" | jq -r '.path' | sed 's/\//_/g')
+          
+          # Save content to a temporary file for validation
+          echo "$content" > temp.py
+
+          # Phase 1: Validate with ruff
+          if ruff check temp.py; then
+            echo "$line" >> phase1/qualified/$filename.json
+          else
+            echo "$line" >> phase1/unqualified/$filename.json
+          fi
+        done
+
+        # Phase 2: Reformat and Revalidate
+        for file in phase1/unqualified/*.json; do
+          content=$(jq -r '.content' "$file")
+          echo "$content" > temp.py
+          
+          # Reformat code
+          ruff --fix temp.py
+          
+          # Revalidate
+          if ruff check temp.py; then
+            jq ".content = \"$(cat temp.py | jq -sR .)\"" "$file" > phase2/reformatted/$(basename "$file")
+          else
+            cp "$file" phase2/unfixable/
+          fi
+        done
           else
             cp "$file" "phase1/unqualified/$filename"
           fi
