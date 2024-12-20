@@ -36,6 +36,7 @@ jobs:
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
       run: |
+        git config --global credential.helper store
         huggingface-cli login --token $HF_TOKEN --add-to-git-credential
 
     # Clone Hugging Face Repository with LFS
