@@ -1,0 +1,60 @@
+name: Qualify Code Dataset
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - raw_data/**
+
+jobs:
+  qualify_code:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout GitHub repository
+    - name: Checkout Code
+      uses: actions/checkout@v4.2.2
+
+    # Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v5.3.0
+      with:
+        python-version: '3.13'
+
+    # Install Git LFS
+    - name: Install Git LFS
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git-lfs
+        git lfs install
+
+    # Authenticate Hugging Face and clone repository with Git LFS
+    - name: Clone Hugging Face Repository with LFS
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      run: |
+        git config --global credential.helper store
+        echo "https://huggingface.co:x-access-token:${HF_TOKEN}@huggingface.co" > ~/.git-credentials
+        git lfs install
+        git clone https://huggingface.co/bigcode/the-stack-smol huggingface_repo
+        cd huggingface_repo
+        git lfs pull
+        ls -lh
+
+    # Install dependencies and process files
+    - name: Install Dependencies
+      run: |
+        pip install ruff
+
+    # Example task with the cloned repo
+    - name: Process Files in Hugging Face Repo
+      run: |
+        mkdir -p phase1/qualified phase1/unqualified
+        for file in huggingface_repo/*; do
+          filename=$(basename "$file")
+          if ruff check "$file"; then
+            cp "$file" "phase1/qualified/$filename"
+          else
+            cp "$file" "phase1/unqualified/$filename"
+          fi
+        done
