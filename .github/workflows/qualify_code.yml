@@ -42,7 +42,7 @@ jobs:
     - name: Clone Hugging Face Repository
       run: |
         git lfs install
-        git clone https://huggingface.co/<username>/<repo> huggingface_repo
+        git clone https://huggingface.co/bigcode/the-stack-smol huggingface_repo
         cd huggingface_repo
         git lfs pull
         ls -lh
